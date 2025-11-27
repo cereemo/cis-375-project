@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>E-commerce site</title>
+
+    <!-- stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav>
+        <div class="logo">E-commerce site</div>
+
+        <form class="search-bar" action="products.html" method="get">
+            <input type="search" name="q" placeholder="Search" aria-label="Search products" />
+            <button class="btn-primary" type="submit">Search</button>
+        </form>
+
+        <ul>
+            <li><a href="#">Home</a></li>
+            <li><a href="products.html">Shop</a></li>
+            <li><a href="cart.html">Cart (0)</a></li>
+            <li><a href="auth.html">Account</a></li>
+        </ul>
+    </nav>
+
+    <!-- FEATURE SLIDESHOW -->
+    <section class="feature-slider section">
+        <div class="slides">
+            <article class="slide active" style="background-image: url('img/stockphoto.webp');">
+                <div class="slide-content">
+                    <h2>Some text</h2>
+                    <p>Some text</p>
+                    <a href="products.html"><button class="btn-primary">Some text</button></a>
+                </div>
+            </article>
+
+            <article class="slide" style="background-image: url('img/stockphoto.webp');">
+                <div class="slide-content">
+                    <h2>Some text</h2>
+                    <p>Some text</p>
+                    <a href="products.html"><button class="btn-primary">Some text</button></a>
+                </div>
+            </article>
+
+            <article class="slide" style="background-image: url('img/stockphoto.webp');">
+                <div class="slide-content">
+                    <h2>Some text</h2>
+                    <p>Some text</p>
+                    <a href="products.html"><button class="btn-primary">Some text</button></a>
+                </div>
+            </article>
+        </div>
+
+        <div class="slider-controls">
+            <button class="slider-btn prev" aria-label="Previous slide"><</button>
+            <div class="dots" aria-label="Slide navigation">
+                <button class="dot active" aria-label="Slide 1"></button>
+                <button class="dot" aria-label="Slide 2"></button>
+                <button class="dot" aria-label="Slide 3"></button>
+            </div>
+            <button class="slider-btn next" aria-label="Next slide">></button>
+        </div>
+    </section>
+
+    <!-- HERO SECTION -->
+    <section class="hero">
+        <h1>Some Header</h1>
+        <p>
+            Some text
+        </p>
+        <a href="products.html"><button class="btn-primary">Shop Now</button></a>
+    </section>
+
+    <!-- CATEGORIES -->
+    <section class="section">
+        <h2>Categories</h2>
+        <div class="categories">
+            <div class="category-card">Text</div>
+            <div class="category-card">Text</div>
+            <div class="category-card">Text</div>
+            <div class="category-card">Text</div>
+        </div>
+    </section>
+
+    <!-- FEATURED PRODUCTS -->
+    <section class="section">
+        <h2>Featured Products</h2>
+
+        <div class="products-grid">
+            <div class="product-card">
+                <img src="img/depositphotos_38143799-stock-photo-e-commerce-shopping-cart-with.webp" alt="Product" />
+                <h3>Text</h3>
+                <p>$</p>
+                <button class="btn-primary">Add to Cart</button>
+            </div>
+
+            <div class="product-card">
+                <img src="img/depositphotos_38143799-stock-photo-e-commerce-shopping-cart-with.webp" alt="Product" />
+                <h3>Text</h3>
+                <p>$</p>
+                <button class="btn-primary">Add to Cart</button>
+            </div>
+
+            <div class="product-card">
+                <img src="img/depositphotos_38143799-stock-photo-e-commerce-shopping-cart-with.webp" alt="Product" />
+                <h3>Text</h3>
+                <p>$</p>
+                <button class="btn-primary">Add to Cart</button>
+            </div>
+
+            <div class="product-card">
+                <img src="img/depositphotos_38143799-stock-photo-e-commerce-shopping-cart-with.webp" alt="Product" />
+                <h3>Text</h3>
+                <p>$</p>
+                <button class="btn-primary">Add to Cart</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        footer text
+    </footer>
+
+</body>
+
+<script>
+    (function() {
+        const slides = Array.from(document.querySelectorAll('.slide'));
+        const dots = Array.from(document.querySelectorAll('.dot'));
+        const prev = document.querySelector('.slider-btn.prev');
+        const next = document.querySelector('.slider-btn.next');
+        let index = 0;
+
+        function showSlide(i) {
+            slides.forEach((slide, idx) => slide.classList.toggle('active', idx === i));
+            dots.forEach((dot, idx) => dot.classList.toggle('active', idx === i));
+            index = i;
+        }
+
+        prev.addEventListener('click', () => {
+            const target = (index - 1 + slides.length) % slides.length;
+            showSlide(target);
+        });
+
+        next.addEventListener('click', () => {
+            const target = (index + 1) % slides.length;
+            showSlide(target);
+        });
+
+        dots.forEach((dot, idx) => {
+            dot.addEventListener('click', () => showSlide(idx));
+        });
+
+        setInterval(() => showSlide((index + 1) % slides.length), 6000);
+    })();
+</script>
+</html>
