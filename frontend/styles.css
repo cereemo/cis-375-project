@@ -146,10 +146,12 @@ nav a {
 .slide {
     min-height: 320px;
     display: none;
-    align-items: flex-end;
+    align-items: center;
+    justify-content: flex-start;
     padding: var(--space-xl);
-    background-size: cover;
-    background-position: center;
+    background-size: contain;
+    background-position: center right;
+    background-repeat: no-repeat;
     border-radius: var(--radius-card);
     transition: opacity 0.6s ease, transform 0.6s ease;
 }
