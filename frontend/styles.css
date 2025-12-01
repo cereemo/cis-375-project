@@ -648,3 +648,66 @@ nav a {
     padding: 1rem 2rem;
     font-size: 1rem;
 }
+
+/*featured sales*/
+
+.hero.hero-sale {
+    position: relative;
+    overflow: hidden;
+    margin: var(--space-xl);
+    padding: 5rem var(--space-xl);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-strong);
+    color: #ffffff;
+    text-align: left;
+    background-size: contain;
+    background-position: center;
+}
+
+.hero.hero-sale::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        120deg,
+        rgba(184, 59, 94, 0.80),
+        rgba(240, 138, 93, 0.75)
+    );
+    mix-blend-mode: multiply;
+    opacity: 0.95;
+    z-index: 0;
+}
+
+.hero-sale-content {
+    position: relative;
+    z-index: 1;
+    max-width: 420px;
+}
+
+.hero-sale-badge {
+    display: inline-block;
+    margin-bottom: var(--space-sm);
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.15);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.hero-sale-content h1 {
+    font-size: 2.5rem;
+    margin: 0 0 var(--space-sm);
+    color: #ffffff;
+}
+
+.hero-sale-content p {
+    margin: 0 0 var(--space-lg);
+    font-size: 1.05rem;
+    color: #fefaf6;
+}
+
+.hero-sale-button .btn-primary {
+    padding-inline: 2.2rem;
+}
