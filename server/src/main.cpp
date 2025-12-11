@@ -1,6 +1,7 @@
 #include <drogon/drogon.h>
 #include "utils/AppRole.h"
 #include <cstdlib>
+#include <utils/Math.h>
 
 #include "services/VaultService.h"
 
@@ -23,8 +24,10 @@
 }
 
 int main() {
+    LOG_INFO << IntegerPow(5, 4);
+
     // Initialize (Vault)
-    VaultManager::init("ccbe696b-0486-7032-8957-a5122fb469f4", "f32feaff-04ee-4b1b-72e3-6b45c60a38b9");
+    VaultManager::init("bf71b960-b0fc-b0f7-852a-e7483131b437", "7878cb61-1611-958c-f909-7255b1010c54");
 
     // (On login) Connect to jwt key
     VaultManager::registerLoginFunction([]() {

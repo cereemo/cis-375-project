@@ -1,0 +1,14 @@
+.idea/
+.vscode/
+cmake-build-debug/
+cmake-build-release/
+build/
+*.DS_Store
+
+server/infra/redis/data/
+server/infra/qdrant/storage/
+server/infra/vault/data/
+server/infra/vault/data/keys.json
+
+.env
+keys.json

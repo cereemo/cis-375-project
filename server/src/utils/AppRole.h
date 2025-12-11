@@ -126,12 +126,6 @@ inline bool appRoleRenew() {
     const auto request = drogon::HttpRequest::newHttpRequest();
     request->setMethod(drogon::HttpMethod::Post);
     request->setPath("/v1/auth/token/renew-self");
-    /*
-    {
-        std::lock_guard lock(tokenMutex);
-        request->addHeader("X-Vault-Token", token.client_token);
-    }
-    */
     request->addHeader("X-Vault-Token", VaultManager::getClientToken());
     request->setBody("{}");
     request->addHeader("Content-Type", "application/json");

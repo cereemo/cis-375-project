@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ecommerce
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+  redis:
+    image: redis:8.4-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./infra/redis/data:/data
+    command: redis-server --appendonly yes
+  qdrant:
+    image: qdrant/qdrant:v1.9.2
+    container_name: qdrant
+    restart: always
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./infra/qdrant/storage:/qdrant/storage
+  vault:
+    image: hashicorp/vault:1.20.4
+    container_name: vault
+    ports:
+      - "8200:8200"
+      - "8201:8201"
+    volumes:
+      - ./infra/vault/config:/vault/config
+      - ./infra/vault/data:/vault/data
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_CONFIG_FILE: /vault/config/vault-config.hcl
+      VAULT_ADDR: "http://0.0.0.0:8200"
+    command: server
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+  vault-init:
+    image: hashicorp/vault:1.20.4
+    container_name: vault-init
+    depends_on:
+      vault:
+        condition: service_started
+    volumes:
+      - ./infra/vault/config:/vault/config
+      - ./infra/vault/data:/vault/data
+    entrypoint: /bin/sh -c "/vault/config/setup.sh || sleep 60",
+volumes:
+  postgres_data:

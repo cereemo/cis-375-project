@@ -17,5 +17,15 @@
       "isFast": true,
       "number_of_connections": 5
     }
+  ],
+  "redis_clients": [
+    {
+      "name": "default",
+      "host": "host.docker.internal",
+      "port": 6379,
+      "passwd": "",
+      "db": 0,
+      "is_fast": false
+    }
   ]
 }

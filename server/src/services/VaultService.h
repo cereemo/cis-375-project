@@ -33,6 +33,7 @@ private:
     static inline std::map<int, std::string> publicKeys_;
     static inline int latestVersion_ = 0;
     static inline std::shared_mutex mutex_;
+    static inline unsigned char oidHeader[] = {0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00};
 
     static time_t timegm(struct tm *tm) {
         #ifdef _WIN32
@@ -48,6 +49,20 @@ private:
         drogon::app().getLoop()->runAfter(safeDelay, []() {
            updateKeys();
         });
+    }
+
+    static std::string toPem(const std::string& vaultBase64) {
+        const std::string rawBytes = drogon::utils::base64Decode(vaultBase64);
+        std::string spkiData;
+        spkiData.append(reinterpret_cast<char *>(oidHeader), sizeof(oidHeader));
+        spkiData.append(rawBytes);
+
+        const std::string spkiBase64 = drogon::utils::base64Encode(spkiData);
+
+        std::string pem = "-----BEGIN PUBLIC KEY-----\n";
+        for (size_t i = 0; i < spkiBase64.length(); i += 64) pem += spkiBase64.substr(i, 64) + "\n";
+        pem += "-----END PUBLIC KEY-----";
+        return pem;
     }
 
     static void updateKeys() {
@@ -93,7 +108,7 @@ private:
 
         for (const auto &keyId : keysObject.getMemberNames()) {
             int version = std::stoi(keyId);
-            if (version >= cutoff) newKeys[version] = keysObject[keyId]["public_key"].asString();
+            if (version >= cutoff) newKeys[version] = toPem(keysObject[keyId]["public_key"].asString());
             if (version == latestFromVault) latestCreation = keysObject[keyId]["creation_time"].asString();
         }
 

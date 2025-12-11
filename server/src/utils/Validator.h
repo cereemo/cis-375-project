@@ -1,9 +1,9 @@
 #pragma once
 
-#include <fmt/core.h>
 #include <functional>
 #include <regex>
 #include <unordered_map>
+#include <format>
 
 /* Main Data Validator */
 inline std::tuple<bool, std::string> validateData(std::unordered_map<std::string, std::string> &data, const std::unordered_map<std::string, std::function<std::tuple<bool, std::string>(const std::string&)>> &validators, bool break_early = true) {
@@ -11,9 +11,9 @@ inline std::tuple<bool, std::string> validateData(std::unordered_map<std::string
     std::string messages;
 
     for (const auto& [key, value] : data) {
-        if (!validators.contains(key)) throw std::runtime_error(fmt::format("Missing validator key for {}", key));
+        if (!validators.contains(key)) throw std::runtime_error(std::format("Missing validator key for {}", key));
         if (std::tuple<bool, std::string> validator_result = validators.at(key)(value); !std::get<0>(validator_result)) {
-            messages += fmt::format("{}{}", messages.empty() ? "" : ";", std::get<1>(validator_result));
+            messages += std::format("{}{}", messages.empty() ? "" : ";", std::get<1>(validator_result));
             isValid = false;
             if (break_early) break;
         }
