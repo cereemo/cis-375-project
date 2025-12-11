@@ -9,3 +9,7 @@ path "transit/sign/jwt-key" {
 path "transit/keys/jwt-key/config" {
   capabilities = ["read"]
 }
+
+path "transit/sign/jwt-key/*" {
+  capabilities = ["update"]
+}
