@@ -17,20 +17,20 @@
                 Create your account using your email, password, and confirmation code.
             </p>
 
-            <form class="auth-form">
+            <!-- Errors -->
+            <p id="serverError" class="auth-error" style="display:none;"></p>
+            <p id="clientError" class="auth-error" style="display:none;"></p>
+
+            <form class="auth-form" id="signupForm" novalidate>
                 <!-- Email -->
                 <label class="field">
                     <span class="field-label">Email address</span>
                     <div class="field-input-wrapper">
                         <span class="field-icon">✉️</span>
-                        <input
-                            type="email"
-                            name="email"
-                            class="field-input"
-                            placeholder="you@example.com"
-                            required
-                        />
+                        <input type="email" id="email" name="email" class="field-input"
+                               placeholder="you@example.com" required />
                     </div>
+                    <small id="emailErr" class="field-error" style="display:none;"></small>
                 </label>
 
                 <!-- Password -->
@@ -38,35 +38,28 @@
                     <span class="field-label">Password</span>
                     <div class="field-input-wrapper">
                         <span class="field-icon">🔒</span>
-                        <input
-                            type="password"
-                            name="password"
-                            class="field-input"
-                            placeholder="••••••••"
-                            required
-                        />
-                        <button type="button" class="field-icon-btn" aria-label="Show password">
+                        <input type="password" id="password" name="password" class="field-input"
+                               placeholder="••••••••" required />
+                        <button type="button" class="field-icon-btn" aria-label="Show password" data-toggle="password">
                             <img src="img/eye.png" alt="Show password" class="eye-icon">
                         </button>
                     </div>
+                    <small id="passwordErr" class="field-error" style="display:none;"></small>
                 </label>
 
-                <!-- Confirm password -->
+                <!-- Confirm password  -->
                 <label class="field">
                     <span class="field-label">Confirm password</span>
                     <div class="field-input-wrapper">
                         <span class="field-icon">🔒</span>
-                        <input
-                            type="password"
-                            name="confirm_password"
-                            class="field-input"
-                            placeholder="••••••••"
-                            required
-                        />
-                        <button type="button" class="field-icon-btn" aria-label="Show password">
+                        <input type="password" id="confirmPassword" name="confirm_password" class="field-input"
+                               placeholder="••••••••" required />
+                        <button type="button" class="field-icon-btn" aria-label="Show password" data-toggle="confirmPassword">
                             <img src="img/eye.png" alt="Show password" class="eye-icon">
                         </button>
                     </div>
+    
+                    <small id="confirmErr" class="field-error" style="display:none;"></small>
                 </label>
 
                 <!-- Authentication Code -->
@@ -75,22 +68,18 @@
                     <div class="code-row">
                         <div class="field-input-wrapper">
                             <span class="field-icon">#</span>
-                            <input
-                                type="text"
-                                name="code"
-                                class="field-input"
-                                placeholder="Enter confirmation code"
-                                required
-                            />
+                            <input type="text" id="code" name="code" class="field-input"
+                                   placeholder="Enter confirmation code" required />
                         </div>
-                        <button type="button" class="code-btn">
+                        <button type="button" class="code-btn" id="sendCodeBtn">
                             Send code
                         </button>
                     </div>
+                    <small id="codeErr" class="field-error" style="display:none;"></small>
                 </label>
 
                 <!-- Submit -->
-                <button type="submit" class="btn-primary auth-submit">
+                <button type="submit" class="btn-primary auth-submit" id="signupBtn">
                     Sign up
                 </button>
             </form>
@@ -101,6 +90,109 @@
             </p>
         </section>
     </main>
+
+    <script src="auth.js"></script>
+    <script>
+      // Save token
+      let creationToken = null;
+
+      const form = document.getElementById("signupForm");
+      const sendCodeBtn = document.getElementById("sendCodeBtn");
+      const signupBtn = document.getElementById("signupBtn");
+
+      const email = document.getElementById("email");
+      const password = document.getElementById("password");
+      const confirmPassword = document.getElementById("confirmPassword");
+      const code = document.getElementById("code");
+
+      const errMap = {
+        topServerEl: document.getElementById("serverError"),
+        topClientEl: document.getElementById("clientError"),
+        emailEl: document.getElementById("emailErr"),
+        passwordEl: document.getElementById("passwordErr"),
+        codeEl: document.getElementById("codeErr"),
+      };
+      const confirmErr = document.getElementById("confirmErr");
+
+      // hide/unhide password
+      document.querySelectorAll("[data-toggle]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-toggle");
+          const input = document.getElementById(id);
+          if (input) input.type = input.type === "password" ? "text" : "password";
+        });
+      });
+
+      function clearAllErrors() {
+        clearAuthErrors(errMap);
+        hideEl(confirmErr);
+      }
+
+      sendCodeBtn.addEventListener("click", async () => {
+        clearAllErrors();
+
+        const emailVal = email.value.trim();
+        if (!emailVal) {
+          showAuthError(errMap, "email", "Please enter your email.");
+          return;
+        }
+
+        sendCodeBtn.disabled = true;
+        sendCodeBtn.textContent = "Sending...";
+
+        try {
+          const data = await apiPost("/api/account_creation_code", { email: emailVal });
+          creationToken = data.token;
+
+          showAuthError(errMap, "client", "Code requested. Check your email for the 6-digit code.");
+        } catch (e) {
+          showAuthError(errMap, e.field, e.message);
+        } finally {
+          sendCodeBtn.disabled = false;
+          sendCodeBtn.textContent = "Send code";
+        }
+      });
+
+      form.addEventListener("submit", async (evt) => {
+        evt.preventDefault();
+        clearAllErrors();
+
+        const emailVal = email.value.trim();
+        const passVal = password.value;
+        const confirmVal = confirmPassword.value;
+        const codeVal = code.value.trim();
+
+        if (!creationToken) {
+          showAuthError(errMap, "client", "Please click “Send code” first.");
+          return;
+        }
+        if (passVal !== confirmVal) {
+          showEl(confirmErr, "Passwords do not match.");
+          return;
+        }
+
+        signupBtn.disabled = true;
+        signupBtn.textContent = "Creating...";
+
+        try {
+          await apiPost("/api/create_account", {
+            email: emailVal,
+            password: passVal,
+            code: codeVal,
+            token: creationToken
+          });
+
+          // redirect to dashboard
+          window.location.href = "index.html";
+        } catch (e) {
+          showAuthError(errMap, e.field, e.message);
+
+        } finally {
+          signupBtn.disabled = false;
+          signupBtn.textContent = "Sign up";
+        }
+      });
+    </script>
 
 </body>
 </html>

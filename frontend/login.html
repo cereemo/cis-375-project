@@ -17,20 +17,27 @@
                 Log in with your email and password
             </p>
 
-            <form class="auth-form">
+            <!-- TOP ERRORS -->
+            <p id="serverError" class="auth-error" style="display:none;"></p>
+            <p id="clientError" class="auth-error" style="display:none;"></p>
+
+            <form class="auth-form" id="loginForm" novalidate>
                 <!-- Email -->
                 <label class="field">
                     <span class="field-label">Email address</span>
                     <div class="field-input-wrapper">
                         <span class="field-icon">✉️</span>
                         <input
+                            id="email"
                             type="email"
                             name="email"
                             class="field-input"
                             placeholder="you@example.com"
                             required
+                            autocomplete="email"
                         />
                     </div>
+                    <small id="emailErr" class="field-error" style="display:none;"></small>
                 </label>
 
                 <!-- Password -->
@@ -39,17 +46,19 @@
                     <div class="field-input-wrapper">
                         <span class="field-icon">🔒</span>
                         <input
+                            id="password"
                             type="password"
                             name="password"
                             class="field-input"
                             placeholder="••••••••"
                             required
+                            autocomplete="current-password"
                         />
-                        <button type="button" class="field-icon-btn" aria-label="Show password">
+                        <button type="button" class="field-icon-btn" aria-label="Show password" id="togglePasswordBtn">
                             <img src="img/eye.png" alt="Show Password" class="eye-icon">
                         </button>
-
                     </div>
+                    <small id="passwordErr" class="field-error" style="display:none;"></small>
                 </label>
 
                 <div class="auth-meta-row">
@@ -61,7 +70,7 @@
                 </div>
 
                 <!-- Submit -->
-                <button type="submit" class="btn-primary auth-submit">
+                <button type="submit" class="btn-primary auth-submit" id="loginBtn">
                     Log in
                 </button>
             </form>
@@ -72,5 +81,64 @@
             </p>
         </section>
     </main>
+
+    <script src="auth.js"></script>
+
+    <script>
+      
+      const LOGIN_PATH = ""; // TODO
+
+      const form = document.getElementById("loginForm");
+      const loginBtn = document.getElementById("loginBtn");
+
+      const email = document.getElementById("email");
+      const password = document.getElementById("password");
+
+      const errMap = {
+        topServerEl: document.getElementById("serverError"),
+        topClientEl: document.getElementById("clientError"),
+        emailEl: document.getElementById("emailErr"),
+        passwordEl: document.getElementById("passwordErr"),
+        codeEl: null, // not used on login page
+      };
+
+      // hide/unhide password
+      document.getElementById("togglePasswordBtn").addEventListener("click", () => {
+        password.type = password.type === "password" ? "text" : "password";
+      });
+
+      form.addEventListener("submit", async (evt) => {
+        evt.preventDefault();
+        clearAuthErrors(errMap);
+
+        const emailVal = email.value.trim();
+        const passVal = password.value;
+
+        if (!emailVal) {
+          showAuthError(errMap, "email", "Please enter your email.");
+          return;
+        }
+        if (!passVal) {
+          showAuthError(errMap, "password", "Please enter your password.");
+          return;
+        }
+
+        loginBtn.disabled = true;
+        loginBtn.textContent = "Logging in...";
+
+        try {
+          await apiPost(LOGIN_PATH, { email: emailVal, password: passVal });
+
+          // redirect to dashboard
+          window.location.href = "index.html";
+        } catch (e) {
+          showAuthError(errMap, e.field, e.message);
+        } finally {
+          loginBtn.disabled = false;
+          loginBtn.textContent = "Log in";
+        }
+      });
+    </script>
+
 </body>
 </html>
