@@ -40,6 +40,13 @@ int main() {
     vaultThread.detach();
 
     drogon::app().loadConfigFile("./config.json");
+
+    drogon::app().registerPostHandlingAdvice([](const drogon::HttpRequestPtr &, const drogon::HttpResponsePtr &resp) {
+        resp->addHeader("Access-Control-Allow-Origin", "*");
+        resp->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        resp->addHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+    });
+
     drogon::app().run();
     return 0;
 }
