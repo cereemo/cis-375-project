@@ -24,8 +24,6 @@
 }
 
 int main() {
-    LOG_INFO << IntegerPow(5, 4);
-
     // Initialize (Vault)
     VaultManager::init("bf71b960-b0fc-b0f7-852a-e7483131b437", "7878cb61-1611-958c-f909-7255b1010c54");
 
