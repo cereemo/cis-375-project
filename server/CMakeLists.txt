@@ -20,7 +20,13 @@ add_executable(ecommerce_server ${SRC_FILES}
         src/utils/Math.h
         src/utils/ApiHelpers.h
         src/filters/CorsFilter.h
-        src/utils/IpHelper.h)
+        src/utils/IpHelper.h
+        src/services/MlService.h
+        src/services/QdrantService.h
+        src/controllers/ProductController.cpp
+        src/controllers/ProductController.h
+        src/filters/JwtFilter.h
+)
 
 file(COPY ${CMAKE_SOURCE_DIR}/config.json DESTINATION ${CMAKE_BINARY_DIR})
 

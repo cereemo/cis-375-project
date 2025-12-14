@@ -61,8 +61,7 @@ drogon::Task<drogon::HttpResponsePtr> ApiController::accountCreationCode(drogon:
         auto tokenOpt = co_await JwtService::sign(payload);
         if (!tokenOpt) co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
 
-        // Todo: Send Email
-
+        LOG_INFO << "Code: " << code;
 
         co_return createResponse({{"token", *tokenOpt}}, drogon::k200OK);
     } catch (const std::exception& e) {
@@ -144,10 +143,9 @@ drogon::Task<drogon::HttpResponsePtr> ApiController::createAccount(drogon::HttpR
     LOG_INFO << "user id: " << user_id;
 
     // Generate token
-    auto access_token = co_await createAuthToken(user_id, 1, ACCESS);
-    auto refresh_token = co_await createAuthToken(user_id, 1, REFRESH);
-    LOG_INFO << "Access Token: " << *access_token;
-    LOG_INFO << "Refresh Token: " << *access_token;
+    ROLE role = isAdmin(email) ? ADMIN : MEMBER;
+    auto access_token = co_await createAuthToken(user_id, 1, ACCESS, role);
+    auto refresh_token = co_await createAuthToken(user_id, 1, REFRESH, role);
     if (!access_token || !refresh_token) co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
 
     co_return createResponse({{"access_token", *access_token}, {"refresh_token", *refresh_token}}, drogon::k201Created);
@@ -237,9 +235,46 @@ drogon::Task<drogon::HttpResponsePtr> ApiController::login(drogon::HttpRequestPt
     } catch (...) {}
 
     // Issue tokens
-    auto access_token = co_await createAuthToken(user_id, token_version, ACCESS);
-    auto refresh_token = co_await createAuthToken(user_id, token_version, REFRESH);
-    if (!access_token || !refresh_token) createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
+    ROLE role = isAdmin(email) ? ADMIN : MEMBER;
+    auto access_token = co_await createAuthToken(user_id, token_version, ACCESS, role);
+    auto refresh_token = co_await createAuthToken(user_id, token_version, REFRESH, role);
+    if (!access_token || !refresh_token) co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
+
+    co_return createResponse({{"access_token", *access_token}, {"refresh_token", *refresh_token}}, drogon::k200OK);
+}
+
+drogon::Task<drogon::HttpResponsePtr> ApiController::refreshToken(drogon::HttpRequestPtr req) {
+
+    const auto json = req->getJsonObject();
+    auto parsedJson = JsonParser(json.get(), {"refresh_token"});
+    if (!parsedJson) co_return createResponse({{"error", "Invalid request body"}, {"field", "client"}}, drogon::k400BadRequest);
+    auto token = parsedJson.value()["refresh_token"];
+
+    auto payload = JwtService::verify(token);
+    if (!payload) co_return createResponse({{"error", "Invalid or expired token"}, {"field", "client"}}, drogon::k401Unauthorized);
+
+    if (!payload->isMember("type") || (*payload)["type"].asString() != "refresh") co_return createResponse({{"error", "Invalid token type"}, {"field", "client"}}, drogon::k403Forbidden);
+
+    int id = (*payload)["sub"].asInt();
+
+    const int token_version = (*payload)["ver"].asInt();
+    ROLE role = MEMBER;
+
+    const auto postgres = drogon::app().getDbClient();
+    try {
+        const auto result = co_await postgres->execSqlCoro("SELECT email, token_version FROM users WHERE id=$1", id);
+        if (result.empty()) co_return createResponse({{"error", "User not found"}, {"field", "client"}}, drogon::k401Unauthorized);
+        if (token_version != result[0]["token_version"].as<int>()) co_return createResponse({{"error", "Session revoked. Please login again."}, {"field", "client"}}, drogon::k401Unauthorized);
+        if (isAdmin(result[0]["email"].as<std::string>())) role = ADMIN;
+    } catch (const std::exception& e) {
+        LOG_ERROR << "Postgres Error: " << e.what();
+        co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
+    }
+
+    auto access_token = co_await createAuthToken(id, token_version, ACCESS, role);
+    auto refresh_token = co_await createAuthToken(id, token_version, REFRESH, role);
+
+    if (!access_token || !refresh_token) co_return createResponse({{"error", "Signing failed"}, {"field", "server"}}, drogon::k500InternalServerError);
 
     co_return createResponse({{"access_token", *access_token}, {"refresh_token", *refresh_token}}, drogon::k200OK);
 }

@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     # Core Dependencies
     libjsoncpp-dev \
     uuid-dev \
+    ca-certificates \
     libssl-dev \
     zlib1g-dev \
     postgresql-server-dev-all \

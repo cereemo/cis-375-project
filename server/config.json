@@ -27,5 +27,15 @@
       "db": 0,
       "is_fast": false
     }
-  ]
+  ],
+  "ml_client": {
+    "name": "ml_service",
+    "host": "host.docker.internal",
+    "port": 5050
+  },
+  "custom_config": {
+    "admin_emails": [
+      "kushal.saraiya.1@gmail.com"
+    ]
+  }
 }

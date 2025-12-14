@@ -1,9 +1,9 @@
 #include <drogon/drogon.h>
 #include "utils/AppRole.h"
 #include <cstdlib>
-#include <utils/Math.h>
-
+#include "services/QdrantService.h"
 #include "services/VaultService.h"
+#include "filters/JwtFilter.h"
 
 [[noreturn]] void vaultBackgroundWorker() {
     LOG_INFO << "Vault background worker started.";
@@ -25,7 +25,7 @@
 
 int main() {
     // Initialize (Vault)
-    VaultManager::init("bf71b960-b0fc-b0f7-852a-e7483131b437", "7878cb61-1611-958c-f909-7255b1010c54");
+    VaultManager::init("bf71b960-b0fc-b0f7-852a-e7483131b437", "79034169-e87e-dfcc-851c-99fdf22c8578");
 
     // (On login) Connect to jwt key
     VaultManager::registerLoginFunction([]() {
@@ -36,6 +36,15 @@ int main() {
     // Start background thread (Vault)
     std::thread vaultThread(vaultBackgroundWorker);
     vaultThread.detach();
+
+    drogon::app().getLoop()->queueInLoop([]() {
+        drogon::async_run([]() -> drogon::Task<void> {
+            bool success = co_await QdrantService::initCollection();
+            if (!success) {
+                LOG_ERROR << "Qdrant Init failed! Search may be broken.";
+            }
+        });
+    });
 
     drogon::app().loadConfigFile("./config.json");
 
