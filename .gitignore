@@ -1,14 +1,20 @@
-.idea/
+../.idea/
 .vscode/
 cmake-build-debug/
 cmake-build-release/
 build/
 *.DS_Store
 
-server/infra/redis/data/
-server/infra/qdrant/storage/
-server/infra/vault/data/
-server/infra/vault/data/keys.json
+server/infra/postgres/data/*
+!server/infra/postgres/data/.gitkeep
 
-.env
-keys.json
+server/infra/redis/data/*
+!server/infra/redis/data/.gitkeep
+
+server/infra/qdrant/storage/*
+!server/infra/qdrant/storage/.gitkeep
+
+server/infra/vault/data/*
+!server/infra/vault/data/.gitkeep
+
+server/infra/vault/data/keys.json
