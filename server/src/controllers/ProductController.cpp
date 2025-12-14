@@ -103,6 +103,35 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::deleteProduct(drogon::H
     co_return createResponse({{"id", productId}}, drogon::k200OK);
 }
 
+drogon::Task<drogon::HttpResponsePtr> ProductController::getProduct(drogon::HttpRequestPtr req, int productId) {
+    auto postgres = drogon::app().getDbClient();
+
+    try {
+        auto result = co_await postgres->execSqlCoro("SELECT id, name, description, price, images FROM products WHERE id=$1", productId);
+        if (result.empty()) co_return createResponse({{"error", "Product not found"}, {"field", "client"}}, drogon::k404NotFound);
+
+        auto row = result[0];
+        Json::Value p;
+        p["id"] = row["id"].as<int>();
+        p["name"] = row["name"].as<std::string>();
+        p["description"] = row["description"].as<std::string>();
+        p["price"] = row["price"].as<double>();
+
+        auto imgStr = row["images"].as<std::string>();
+        Json::Reader reader;
+        Json::Value imagesJson;
+        reader.parse(imgStr, imagesJson);
+
+        p["images"] = imagesJson;
+
+        co_return createResponse({{"data", p}}, drogon::k200OK);
+    } catch (drogon::orm::DrogonDbException& e) {
+        LOG_ERROR << "Postgres Error: " << e.base().what();
+        co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
+    }
+
+}
+
 drogon::Task<drogon::HttpResponsePtr> ProductController::searchProduct(drogon::HttpRequestPtr req) {
     std::string query = req->getParameter("q");
     if (query.empty()) co_return createResponse({{"error", "Missing query"}, {"field", "client"}}, drogon::k400BadRequest);

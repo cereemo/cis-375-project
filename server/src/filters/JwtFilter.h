@@ -4,6 +4,7 @@
 
 #include "utils/ApiHelpers.h"
 #include "utils/JWT.h"
+#include <format>
 
 class JwtFilter : public drogon::HttpFilter<JwtFilter> {
 public:
@@ -22,9 +23,7 @@ public:
             return;
         }
 
-        auto payload = JwtService::verify(token);
-
-        if (payload) {
+        if (auto payload = JwtService::verify(token)) {
             req->attributes()->insert("user", *payload);
             fccb();
         } else {
