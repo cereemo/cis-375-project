@@ -42,19 +42,18 @@ drogon::Task<drogon::HttpResponsePtr> CartController::removeFromCart(drogon::Htt
 }
 
 drogon::Task<drogon::HttpResponsePtr> CartController::getCart(drogon::HttpRequestPtr req) {
-    LOG_INFO << "A";
     auto user = req->attributes()->get<Json::Value>("user");
     int userId = user["sub"].asInt();
-    LOG_INFO << "B";
+
     auto redis = drogon::app().getRedisClient();
     std::string key = "cart:" + std::to_string(userId);
-    LOG_INFO << "C";
+
     std::map<int, int> cartItems; // product id -> quantity
     std::string sqlIds;
 
     try {
         auto redis_result = co_await redis->execCommandCoro("HGETALL %s", key.c_str());
-        LOG_INFO << "D";
+
         if (redis_result.type() == drogon::nosql::RedisResultType::kNil || redis_result.asArray().empty()) co_return createResponse({{"cart", Json::Value(Json::arrayValue)}, {"total", 0.00}}, drogon::k200OK);
         auto args = redis_result.asArray();
         for (size_t i = 0; i < args.size(); i += 2) {
@@ -70,14 +69,12 @@ drogon::Task<drogon::HttpResponsePtr> CartController::getCart(drogon::HttpReques
         LOG_ERROR << "Redis Error " << e.what();
         co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
     }
-    LOG_INFO << "E";
 
     auto db = drogon::app().getDbClient();
     std::string sql = "SELECT id, name, price, images FROM products WHERE id IN (" + sqlIds + ")";
-    LOG_INFO << "F";
+
     try {
         auto productsRes = co_await db->execSqlCoro(sql);
-        LOG_INFO << "G";
 
         // Merge Data
         Json::Value cartList(Json::arrayValue);
@@ -104,8 +101,6 @@ drogon::Task<drogon::HttpResponsePtr> CartController::getCart(drogon::HttpReques
             cartList.append(item);
             totalCartPrice += (price * qty);
         }
-
-        LOG_INFO << "H";
 
         co_return createResponse({{"items", cartList}, {"cart_total", totalCartPrice}}, drogon::k200OK);
     } catch (const drogon::orm::DrogonDbException &e) {

@@ -243,6 +243,21 @@ drogon::Task<drogon::HttpResponsePtr> ApiController::login(drogon::HttpRequestPt
     co_return createResponse({{"access_token", *access_token}, {"refresh_token", *refresh_token}}, drogon::k200OK);
 }
 
+drogon::Task<drogon::HttpResponsePtr> ApiController::logoutAll(drogon::HttpRequestPtr req) {
+    auto userJson = req->attributes()->get<Json::Value>("user");
+    int userId = userJson["sub"].asInt();
+
+    auto postgres = drogon::app().getDbClient();
+    try {
+        co_await postgres->execSqlCoro("UPDATE users SET token_version = token_version + 1 WHERE id=$1", userId);
+    } catch (const drogon::orm::DrogonDbException& e) {
+        LOG_ERROR << "Logout Error: " << e.base().what();
+        co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
+    }
+
+    co_return createResponse({{"message", "Logged out from all devices"}}, drogon::k200OK);
+}
+
 drogon::Task<drogon::HttpResponsePtr> ApiController::refreshToken(drogon::HttpRequestPtr req) {
 
     const auto json = req->getJsonObject();
