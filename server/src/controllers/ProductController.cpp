@@ -192,3 +192,43 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::searchProduct(drogon::H
 
     co_return createResponse({{"data", list}}, drogon::k200OK);
 }
+
+drogon::Task<drogon::HttpResponsePtr> ProductController::getFeatured(drogon::HttpRequestPtr req) {
+    auto db = drogon::app().getDbClient();
+
+    try {
+        auto rows = co_await db->execSqlCoro("SELECT id, name, price, description, images FROM products ORDER BY RANDOM() LIMIT 12");
+        Json::Value list(Json::arrayValue);
+
+        for (const auto& row : rows) {
+            Json::Value p;
+            p["id"] = row["id"].as<int>();
+            p["name"] = row["name"].as<std::string>();
+            p["price"] = row["price"].as<double>();
+
+            std::string desc = row["description"].as<std::string>();
+            if (desc.length() > 60) {
+                p["snippet"] = desc.substr(0, 60) + "...";
+            } else {
+                p["snippet"] = desc;
+            }
+
+            std::string imgJsonStr = row["images"].as<std::string>();
+            Json::Value images;
+            Json::Reader reader;
+
+            if (reader.parse(imgJsonStr, images) && images.isArray() && !images.empty()) {
+                p["thumbnail"] = images[0];
+            } else {
+                p["thumbnail"] = "";
+            }
+
+            list.append(p);
+        }
+
+        co_return createResponse({{"products", list}}, drogon::k200OK);
+    } catch (const drogon::orm::DrogonDbException& e) {
+        LOG_ERROR << "Postgres Error: " << e.base().what();
+        co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
+    }
+}
