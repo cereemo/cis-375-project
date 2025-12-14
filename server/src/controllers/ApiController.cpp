@@ -140,8 +140,6 @@ drogon::Task<drogon::HttpResponsePtr> ApiController::createAccount(drogon::HttpR
         co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
     }
 
-    LOG_INFO << "user id: " << user_id;
-
     // Generate token
     ROLE role = isAdmin(email) ? ADMIN : MEMBER;
     auto access_token = co_await createAuthToken(user_id, 1, ACCESS, role);
