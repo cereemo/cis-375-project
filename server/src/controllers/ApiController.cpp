@@ -257,6 +257,21 @@ drogon::Task<drogon::HttpResponsePtr> ApiController::refreshToken(drogon::HttpRe
 
     int id = (*payload)["sub"].asInt();
 
+    std::string jti = (*payload)["jti"].asString();
+    long exp = (*payload)["exp"].asInt64();
+    long now = time(nullptr);
+
+    auto redis = drogon::app().getRedisClient();
+    std::string blacklistKey = "blacklist:" + jti;
+
+    try {
+        if (auto redis_result = co_await redis->execCommandCoro("EXISTS %s", blacklistKey.c_str()); redis_result.asInteger() == 1) co_return createResponse({{"error", "Token reuse detected. Please login"}, {"field", "client"}}, drogon::k403Forbidden);
+        if (long ttl = exp - now + 10; ttl > 0) co_await redis->execCommandCoro("SET %s 1 EX %d", blacklistKey.c_str(), ttl);
+    } catch (std::exception& e) {
+        LOG_ERROR << "Redis Error: " << e.what();
+        co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
+    }
+
     const int token_version = (*payload)["ver"].asInt();
     ROLE role = MEMBER;
 

@@ -23,6 +23,7 @@ inline drogon::Task<std::optional<std::string>> createAuthToken(const int user_i
     Json::Value payload;
     payload["sub"] = user_id;
     payload["ver"] = token_version;
+    payload["jti"] = drogon::utils::getUuid();
     payload["type"] = type == ACCESS ? "access" : "refresh";
     payload["role"] = role == MEMBER ? "member" : "admin";
     payload["exp"] = time(nullptr) + (type == ACCESS ? 900 : 86400);
