@@ -1,6 +1,3 @@
-// Home page functionality - USE ONLY ON index.html
-// Add to index.html: <script src="js/auth.js"></script> and <script src="js/index-handler.js"></script>
-
 document.addEventListener('DOMContentLoaded', async () => {
     const featuredGrid = document.querySelector('.products-grid');
     

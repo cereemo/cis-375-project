@@ -1,5 +1,3 @@
-// Login form handler - add to login.html as <script src="js/auth.js"></script> and <script src="js/login-handler.js"></script>
-
 document.addEventListener('DOMContentLoaded', () => {
     // Redirect if already logged in
     if (TokenManager.isLoggedIn()) {
