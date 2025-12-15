@@ -68,5 +68,20 @@ services:
       - ./infra/vault/config:/vault/config
       - ./infra/vault/data:/vault/data
     entrypoint: /bin/sh -c "/vault/config/setup.sh || sleep 60",
+  server:
+    build: .
+    container_name: cpp_server
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./infra/uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+      - vault
+      - ml-service
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 volumes:
   postgres_data:

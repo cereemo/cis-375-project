@@ -1,0 +1,8 @@
+cmake-build-debug/
+cmake-build-release/
+.git/
+.idea/
+infra/postgres/
+infra/redis/
+infra/vault/
+infra/qdrant/
