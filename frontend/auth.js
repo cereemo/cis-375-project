@@ -1,47 +1,187 @@
-const API_BASE = ""; //TODO
+const API_BASE = ''; // TODO
 
-async function apiPost(path, body) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(body),
-  });
+// Token management
+const TokenManager = {
+    setTokens(accessToken, refreshToken) {
+        localStorage.setItem('access_token', accessToken);
+        localStorage.setItem('refresh_token', refreshToken);
+    },
+    
+    getAccessToken() {
+        return localStorage.getItem('access_token');
+    },
+    
+    getRefreshToken() {
+        return localStorage.getItem('refresh_token');
+    },
+    
+    clearTokens() {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+    },
+    
+    isLoggedIn() {
+        return !!this.getAccessToken();
+    }
+};
 
-  const data = await res.json().catch(() => ({}));
+const ApiClient = {
+    async request(endpoint, options = {}) {
+        const url = `${API_BASE}${endpoint}`;
+        const headers = {
+            'Content-Type': 'application/json',
+            ...options.headers
+        };
+        
+        const token = TokenManager.getAccessToken();
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        try {
+            let response = await fetch(url, {
+                ...options,
+                headers
+            });
+            
+            // If unauthorized, try to refresh token
+            if (response.status === 401 && TokenManager.getRefreshToken()) {
+                const refreshed = await this.refreshToken();
+                if (refreshed) {
+                    // Retry original request with new token
+                    headers['Authorization'] = `Bearer ${TokenManager.getAccessToken()}`;
+                    response = await fetch(url, {
+                        ...options,
+                        headers
+                    });
+                } else {
+                    TokenManager.clearTokens();
+                    window.location.href = 'login.html';
+                    return null;
+                }
+            }
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Request failed');
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    },
+    
+    async refreshToken() {
+        try {
+            const response = await fetch(`${API_BASE}/api/refresh`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    refresh_token: TokenManager.getRefreshToken()
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                TokenManager.setTokens(data.access_token, data.refresh_token);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Token refresh failed:', error);
+            return false;
+        }
+    }
+};
 
-  //success codes are 200 and 201
-  if (res.status !== 200 && res.status !== 201) {
-    throw {
-      status: res.status,
-      field: data.field || "client",
-      message: data.error || "Client error",
-      raw: data,
-    };
-  }
+// Auth API methods
+const AuthAPI = {
+    async requestCreationCode(email) {
+        return await ApiClient.request('/api/account_creation_code', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        });
+    },
+    
+    async createAccount(email, password, code, token) {
+        const response = await ApiClient.request('/api/create_account', {
+            method: 'POST',
+            body: JSON.stringify({ email, password, code, token })
+        });
+        
+        if (response.access_token && response.refresh_token) {
+            TokenManager.setTokens(response.access_token, response.refresh_token);
+        }
+        
+        return response;
+    },
+    
+    async login(email, password) {
+        const response = await ApiClient.request('/api/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
+        });
+        
+        if (response.access_token && response.refresh_token) {
+            TokenManager.setTokens(response.access_token, response.refresh_token);
+        }
+        
+        return response;
+    },
+    
+    async logoutAll() {
+        await ApiClient.request('/api/logoutall', {
+            method: 'POST'
+        });
+        TokenManager.clearTokens();
+    },
+    
+    logout() {
+        TokenManager.clearTokens();
+        window.location.href = 'login.html';
+    }
+};
 
-  return data;
+// Update cart count in navbar
+async function updateCartCount() {
+    if (!TokenManager.isLoggedIn()) {
+        document.querySelectorAll('[href="cart.html"]').forEach(el => {
+            el.textContent = 'Cart (0)';
+        });
+        return;
+    }
+    
+    try {
+        const data = await ApiClient.request('/api/cart');
+        const itemCount = data.items ? data.items.length : 0;
+        document.querySelectorAll('[href="cart.html"]').forEach(el => {
+            el.textContent = `Cart (${itemCount})`;
+        });
+    } catch (error) {
+        console.error('Failed to update cart count:', error);
+    }
 }
 
-function hideEl(el) { if (el) { el.style.display = "none"; el.textContent = ""; } }
-function showEl(el, msg) { if (el) { el.style.display = "block"; el.textContent = msg; } }
-
-function clearAuthErrors(map) {
-  hideEl(map.topServerEl);
-  hideEl(map.topClientEl);
-  hideEl(map.emailEl);
-  hideEl(map.passwordEl);
-  hideEl(map.codeEl);
-}
-
-function showAuthError(map, field, message) {
-  if (field === "server") return showEl(map.topServerEl, message);
-  if (field === "client") return showEl(map.topClientEl, message);
-
-  // form fields
-  if (field === "email") return showEl(map.emailEl, message);
-  if (field === "password") return showEl(map.passwordEl, message);
-  if (field === "code") return showEl(map.codeEl, message);
-
-  return showEl(map.topClientEl, message || "Client error");
-}
+// Initialize auth state on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // Update navbar based on auth state
+    const accountLinks = document.querySelectorAll('[href="login.html"]');
+    
+    if (TokenManager.isLoggedIn()) {
+        accountLinks.forEach(link => {
+            link.textContent = 'Logout';
+            link.href = '#';
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                AuthAPI.logout();
+            });
+        });
+        
+        updateCartCount();
+    }
+});
