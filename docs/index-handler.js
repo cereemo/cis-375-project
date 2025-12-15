@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 card.className = 'product-card';
                 
                 const imgSrc = product.thumbnail 
-                    ? `${API_BASE}/uploads/${product.thumbnail}` 
+                    ? `${API_BASE}/images/${product.thumbnail}` 
                     : 'img/stockphoto.webp';
                 
                 card.innerHTML = `
@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         } catch (error) {
             console.error('Failed to load featured products:', error);
-            // Keep existing static products as fallback
         }
     }
 });

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Log in - BuyThings</title>
     <link rel="stylesheet" href="styles.css" />
 </head>
@@ -17,7 +18,7 @@
                 Log in with your email and password
             </p>
 
-            <!-- TOP ERRORS -->
+            <!--  Errors -->
             <p id="serverError" class="auth-error" style="display:none;"></p>
             <p id="clientError" class="auth-error" style="display:none;"></p>
 
@@ -83,63 +84,15 @@
     </main>
 
     <script src="auth.js"></script>
+    <script src="login-handler.js"></script>
 
+    <!-- show/hide password -->
     <script>
-      
-      const LOGIN_PATH = ""; // TODO
-
-      const form = document.getElementById("loginForm");
-      const loginBtn = document.getElementById("loginBtn");
-
-      const email = document.getElementById("email");
-      const password = document.getElementById("password");
-
-      const errMap = {
-        topServerEl: document.getElementById("serverError"),
-        topClientEl: document.getElementById("clientError"),
-        emailEl: document.getElementById("emailErr"),
-        passwordEl: document.getElementById("passwordErr"),
-        codeEl: null, // not used on login page
-      };
-
-      // hide/unhide password
       document.getElementById("togglePasswordBtn").addEventListener("click", () => {
+        const password = document.getElementById("password");
         password.type = password.type === "password" ? "text" : "password";
       });
-
-      form.addEventListener("submit", async (evt) => {
-        evt.preventDefault();
-        clearAuthErrors(errMap);
-
-        const emailVal = email.value.trim();
-        const passVal = password.value;
-
-        if (!emailVal) {
-          showAuthError(errMap, "email", "Please enter your email.");
-          return;
-        }
-        if (!passVal) {
-          showAuthError(errMap, "password", "Please enter your password.");
-          return;
-        }
-
-        loginBtn.disabled = true;
-        loginBtn.textContent = "Logging in...";
-
-        try {
-          await apiPost(LOGIN_PATH, { email: emailVal, password: passVal });
-
-          // redirect to dashboard
-          window.location.href = "index.html";
-        } catch (e) {
-          showAuthError(errMap, e.field, e.message);
-        } finally {
-          loginBtn.disabled = false;
-          loginBtn.textContent = "Log in";
-        }
-      });
     </script>
-<script src="js/auth.js"></script>
-<script src="js/login-handler.js"></script>
+
 </body>
 </html>

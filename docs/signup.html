@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sign up - BuyThings</title>
     <link rel="stylesheet" href="styles.css" />
 </head>
@@ -17,7 +18,7 @@
                 Create your account using your email, password, and confirmation code.
             </p>
 
-            <!-- Errors -->
+            <!-- errors -->
             <p id="serverError" class="auth-error" style="display:none;"></p>
             <p id="clientError" class="auth-error" style="display:none;"></p>
 
@@ -58,7 +59,6 @@
                             <img src="img/eye.png" alt="Show password" class="eye-icon">
                         </button>
                     </div>
-    
                     <small id="confirmErr" class="field-error" style="display:none;"></small>
                 </label>
 
@@ -91,109 +91,9 @@
         </section>
     </main>
 
+    <!-- Scripts -->
     <script src="auth.js"></script>
-    <script>
-      // Save token
-      let creationToken = null;
+    <script src="signup-handler.js"></script>
 
-      const form = document.getElementById("signupForm");
-      const sendCodeBtn = document.getElementById("sendCodeBtn");
-      const signupBtn = document.getElementById("signupBtn");
-
-      const email = document.getElementById("email");
-      const password = document.getElementById("password");
-      const confirmPassword = document.getElementById("confirmPassword");
-      const code = document.getElementById("code");
-
-      const errMap = {
-        topServerEl: document.getElementById("serverError"),
-        topClientEl: document.getElementById("clientError"),
-        emailEl: document.getElementById("emailErr"),
-        passwordEl: document.getElementById("passwordErr"),
-        codeEl: document.getElementById("codeErr"),
-      };
-      const confirmErr = document.getElementById("confirmErr");
-
-      // hide/unhide password
-      document.querySelectorAll("[data-toggle]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const id = btn.getAttribute("data-toggle");
-          const input = document.getElementById(id);
-          if (input) input.type = input.type === "password" ? "text" : "password";
-        });
-      });
-
-      function clearAllErrors() {
-        clearAuthErrors(errMap);
-        hideEl(confirmErr);
-      }
-
-      sendCodeBtn.addEventListener("click", async () => {
-        clearAllErrors();
-
-        const emailVal = email.value.trim();
-        if (!emailVal) {
-          showAuthError(errMap, "email", "Please enter your email.");
-          return;
-        }
-
-        sendCodeBtn.disabled = true;
-        sendCodeBtn.textContent = "Sending...";
-
-        try {
-          const data = await apiPost("/api/account_creation_code", { email: emailVal });
-          creationToken = data.token;
-
-          showAuthError(errMap, "client", "Code requested. Check your email for the 6-digit code.");
-        } catch (e) {
-          showAuthError(errMap, e.field, e.message);
-        } finally {
-          sendCodeBtn.disabled = false;
-          sendCodeBtn.textContent = "Send code";
-        }
-      });
-
-      form.addEventListener("submit", async (evt) => {
-        evt.preventDefault();
-        clearAllErrors();
-
-        const emailVal = email.value.trim();
-        const passVal = password.value;
-        const confirmVal = confirmPassword.value;
-        const codeVal = code.value.trim();
-
-        if (!creationToken) {
-          showAuthError(errMap, "client", "Please click “Send code” first.");
-          return;
-        }
-        if (passVal !== confirmVal) {
-          showEl(confirmErr, "Passwords do not match.");
-          return;
-        }
-
-        signupBtn.disabled = true;
-        signupBtn.textContent = "Creating...";
-
-        try {
-          await apiPost("/api/create_account", {
-            email: emailVal,
-            password: passVal,
-            code: codeVal,
-            token: creationToken
-          });
-
-          // redirect to dashboard
-          window.location.href = "index.html";
-        } catch (e) {
-          showAuthError(errMap, e.field, e.message);
-
-        } finally {
-          signupBtn.disabled = false;
-          signupBtn.textContent = "Sign up";
-        }
-      });
-    </script>
-<script src="js/auth.js"></script>
-<script src="js/signup-handler.js"></script>
 </body>
 </html>
