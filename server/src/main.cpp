@@ -55,6 +55,21 @@ int main() {
         resp->addHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
     });
 
+    LOG_INFO << "Document root: " << drogon::app().getDocumentRoot();
+
+    drogon::app().registerHandler(
+    "/images/{productId}/{fileName}",
+    [](const drogon::HttpRequestPtr& req,
+           std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+           const std::string& productId,
+           const std::string& fileName) {
+            std::string filePath = "/app/uploads/" + productId + "/" + fileName;
+            auto resp = drogon::HttpResponse::newFileResponse(filePath);
+            callback(resp);
+        },
+        {drogon::Get}
+    );
+
     drogon::app().run();
     return 0;
 }

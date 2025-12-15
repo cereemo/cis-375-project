@@ -28,6 +28,8 @@ add_executable(ecommerce_server ${SRC_FILES}
         src/filters/JwtFilter.h
         src/controllers/CartController.cpp
         src/controllers/CartController.h
+        src/controllers/ImageController.cpp
+        src/controllers/ImageController.h
 )
 
 file(COPY ${CMAKE_SOURCE_DIR}/config.json DESTINATION ${CMAKE_BINARY_DIR})
