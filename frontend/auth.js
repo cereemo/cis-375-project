@@ -1,4 +1,4 @@
-const API_BASE = ''; // TODO
+const API_BASE = ''; // change
 
 // Token management
 const TokenManager = {
@@ -25,6 +25,7 @@ const TokenManager = {
     }
 };
 
+// API Client with automatic token refresh
 const ApiClient = {
     async request(endpoint, options = {}) {
         const url = `${API_BASE}${endpoint}`;
@@ -144,6 +145,44 @@ const AuthAPI = {
     logout() {
         TokenManager.clearTokens();
         window.location.href = 'login.html';
+    }
+};
+
+// Products API - REQUIRED by products-api.js, product-detail.js, and index-handler.js
+const ProductsAPI = {
+    async getFeatured() {
+        return await ApiClient.request('/api/products/featured');
+    },
+    
+    async getProduct(id) {
+        return await ApiClient.request(`/api/products/${id}`);
+    },
+    
+    async search(query) {
+        return await ApiClient.request(`/api/products/search?q=${encodeURIComponent(query)}`);
+    }
+};
+
+// Cart API - REQUIRED by cart-handler.js, product-detail.js, and index-handler.js
+const CartAPI = {
+    async addToCart(productId, quantity = 1) {
+        return await ApiClient.request('/api/cart', {
+            method: 'POST',
+            body: JSON.stringify({ 
+                product_id: productId, 
+                quantity: quantity 
+            })
+        });
+    },
+    
+    async getCart() {
+        return await ApiClient.request('/api/cart');
+    },
+    
+    async removeFromCart(productId) {
+        return await ApiClient.request(`/api/cart/${productId}`, {
+            method: 'DELETE'
+        });
     }
 };
 
