@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8" />
     <title>Cart - BuyThings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Styles -->
     <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -24,36 +27,7 @@
             Review your items below.
         </p>
 
-        <div class="cart-layout">
-
-            <!-- Cart Item -->
-            <article class="cart-item">
-                <img
-                    src="img/stockphoto.webp"
-                    alt="Cart item"
-                    class="cart-item-image"
-                />
-
-                <div class="cart-item-info">
-                    <h2 class="cart-item-title">Cart Item</h2>
-                    <p class="cart-item-meta">Example item description</p>
-
-                    <div class="cart-item-bottom-row">
-                        <div class="cart-qty">
-                            <label>Qty</label>
-                            <input type="number" min="1" value="1" />
-                        </div>
-
-                        <span class="cart-item-price">$0.00</span>
-
-                        <button class="cart-remove" type="button">
-                            Remove
-                        </button>
-                    </div>
-                </div>
-            </article>
-
-        </div>
+        <div class="cart-layout"></div>
 
         <!-- Checkout button -->
         <div class="cart-checkout-container">
@@ -61,8 +35,10 @@
                 Proceed to Checkout
             </button>
         </div>
-
     </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/cart-handler.js"></script>
 
 </body>
 </html>
