@@ -8,7 +8,9 @@
 
     <!-- Load product lists + product loader -->
     <script src="products.js" defer></script>
+    <script src="cart.js" defer></script>
     <script src="product-page.js" defer></script>
+
 </head>
 <body>
 
@@ -24,7 +26,12 @@
         <ul>
             <li><a href="index.html">Home</a></li>
             <li><a href="products.html">Shop</a></li>
-            <li><a href="cart.html">Cart</a></li>
+            <li class="nav-cart">
+            <a href="cart.html" class="nav-cart-link">
+            Cart
+            <span id="cart-count" class="cart-badge"></span>
+            </a>
+            </li>
             <li><a href="login.html">Account</a></li>
         </ul>
     </nav>

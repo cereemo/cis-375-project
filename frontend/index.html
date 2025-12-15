@@ -7,6 +7,9 @@
 
     <!-- stylesheet -->
     <link rel="stylesheet" href="styles.css">
+
+    <script src="products.js" defer></script>
+    <script src="cart.js" defer></script>
 </head>
 
 <body>
@@ -23,7 +26,12 @@
         <ul>
             <li><a href="#">Home</a></li>
             <li><a href="products.html">Shop</a></li>
-            <li><a href="cart.html">Cart (0)</a></li>
+            <li class="nav-cart">
+              <a href="cart.html" class="nav-cart-link">
+                Cart
+                <span id="cart-count" class="cart-badge"></span>
+              </a>
+            </li>
             <li><a href="login.html">Account</a></li>
         </ul>
     </nav>
@@ -38,7 +46,7 @@
                 <h2>HP Laptop</h2>
                 <p>High performance for work and school.</p>
                 <a href="product.html?id=laptop">
-                    <button class="btn-primary">View HP Laptop</button>
+                    <button class="btn-primary" type="button">View HP Laptop</button>
                 </a>
             </div>
         </article>
@@ -49,7 +57,7 @@
                 <h2>Earbuds</h2>
                 <p>Clear sound, all-day comfort.</p>
                 <a href="product.html?id=earbuds">
-                    <button class="btn-primary">View Earbuds</button>
+                    <button class="btn-primary" type="button">View Earbuds</button>
                 </a>
             </div>
         </article>
@@ -60,7 +68,7 @@
                 <h2>Casio Calculator</h2>
                 <p>Reliable for daily calculations.</p>
                 <a href="product.html?id=calculator">
-                    <button class="btn-primary">View Calculator</button>
+                    <button class="btn-primary" type="button">View Calculator</button>
                 </a>
             </div>
         </article>
@@ -68,13 +76,13 @@
     </div>
 
         <div class="slider-controls">
-            <button class="slider-btn prev" aria-label="Previous slide"><</button>
+            <button class="slider-btn prev" aria-label="Previous slide" type="button"><</button>
             <div class="dots" aria-label="Slide navigation">
-                <button class="dot active" aria-label="Slide 1"></button>
-                <button class="dot" aria-label="Slide 2"></button>
-                <button class="dot" aria-label="Slide 3"></button>
+                <button class="dot active" aria-label="Slide 1" type="button"></button>
+                <button class="dot" aria-label="Slide 2" type="button"></button>
+                <button class="dot" aria-label="Slide 3" type="button"></button>
             </div>
-            <button class="slider-btn next" aria-label="Next slide">></button>
+            <button class="slider-btn next" aria-label="Next slide" type="button">></button>
         </div>
     </section>
 
@@ -87,7 +95,7 @@
             Save up to <strong>40%</strong>. 
         </p>
         <a href="products.html" class="hero-sale-button">
-            <button class="btn-primary">Shop Cyber Deals</button>
+            <button class="btn-primary" type="button">Shop Cyber Deals</button>
         </a>
     </div>
 </section>
@@ -110,71 +118,102 @@
 
         <div class="products-grid">
             <div class="product-card">
-                <img src="img/calculator.jpg" alt="Product" />
+                <img src="img/calculator.jpg" alt="Casio Calculator" />
                 <h3>Casio Calculator</h3>
                 <p>$29.99</p>
-                <button class="btn-primary">Add to Cart</button>
+                <button class="btn-primary add-to-cart-btn" data-product-id="calculator" type="button">
+                    Add to Cart
+                </button>
             </div>
 
             <div class="product-card">
-                <img src="img/earbuds.jpg" alt="Product" />
+                <img src="img/earbuds.jpg" alt="Wired USB-C Earbuds" />
                 <h3>Wired USB-C Earbuds</h3>
                 <p>$19.99</p>
-                <button class="btn-primary">Add to Cart</button>
+                <button class="btn-primary add-to-cart-btn" data-product-id="earbuds" type="button">
+                    Add to Cart
+                </button>
             </div>
 
             <div class="product-card">
-                <img src="img/hoodie.jpg" alt="Product" />
+                <img src="img/hoodie.jpg" alt="Gray Hoodie" />
                 <h3>Gray Hoodie</h3>
                 <p>$49.99</p>
-                <button class="btn-primary">Add to Cart</button>
+                <button class="btn-primary add-to-cart-btn" data-product-id="hoodie" type="button">
+                    Add to Cart
+                </button>
             </div>
 
             <div class="product-card">
-                <img src="img/laptop.jpg" alt="Product" />
+                <img src="img/laptop.jpg" alt="HP Laptop" />
                 <h3>HP Laptop</h3>
                 <p>$299.99</p>
-                <button class="btn-primary">Add to Cart</button>
+                <button class="btn-primary add-to-cart-btn" data-product-id="laptop" type="button">
+                    Add to Cart
+                </button>
             </div>
         </div>
     </section>
 
     <!-- FOOTER -->
     <footer class="footer">
-        footer text
+        &copy; BuyThings  2025
     </footer>
 
+    <script>
+        // Slideshow
+        (function() {
+            const slides = Array.from(document.querySelectorAll('.slide'));
+            const dots = Array.from(document.querySelectorAll('.dot'));
+            const prev = document.querySelector('.slider-btn.prev');
+            const next = document.querySelector('.slider-btn.next');
+            let index = 0;
+
+            function showSlide(i) {
+                slides.forEach((slide, idx) => slide.classList.toggle('active', idx === i));
+                dots.forEach((dot, idx) => dot.classList.toggle('active', idx === i));
+                index = i;
+            }
+
+            prev.addEventListener('click', () => {
+                const target = (index - 1 + slides.length) % slides.length;
+                showSlide(target);
+            });
+
+            next.addEventListener('click', () => {
+                const target = (index + 1) % slides.length;
+                showSlide(target);
+            });
+
+            dots.forEach((dot, idx) => {
+                dot.addEventListener('click', () => showSlide(idx));
+            });
+
+            setInterval(() => showSlide((index + 1) % slides.length), 6000);
+        })();
+
+        // Featured Products: Add to Cart buttons
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll(".add-to-cart-btn").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const id = btn.dataset.productId;
+                    if (!id) return;
+
+                    addToCart(id, 1);
+                    updateCartCountBadge();
+
+                    // quick feedback
+                    const oldText = btn.textContent;
+                    btn.textContent = "Added ✓";
+                    btn.disabled = true;
+                    setTimeout(() => {
+                        btn.textContent = oldText;
+                        btn.disabled = false;
+                    }, 800);
+                });
+            });
+        });
+    </script>
+
 </body>
-
-<script>
-    (function() {
-        const slides = Array.from(document.querySelectorAll('.slide'));
-        const dots = Array.from(document.querySelectorAll('.dot'));
-        const prev = document.querySelector('.slider-btn.prev');
-        const next = document.querySelector('.slider-btn.next');
-        let index = 0;
-
-        function showSlide(i) {
-            slides.forEach((slide, idx) => slide.classList.toggle('active', idx === i));
-            dots.forEach((dot, idx) => dot.classList.toggle('active', idx === i));
-            index = i;
-        }
-
-        prev.addEventListener('click', () => {
-            const target = (index - 1 + slides.length) % slides.length;
-            showSlide(target);
-        });
-
-        next.addEventListener('click', () => {
-            const target = (index + 1) % slides.length;
-            showSlide(target);
-        });
-
-        dots.forEach((dot, idx) => {
-            dot.addEventListener('click', () => showSlide(idx));
-        });
-
-        setInterval(() => showSlide((index + 1) % slides.length), 6000);
-    })();
-</script>
 </html>

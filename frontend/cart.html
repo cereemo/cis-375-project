@@ -13,56 +13,52 @@
         <ul>
             <li><a href="index.html">Home</a></li>
             <li><a href="products.html">Shop</a></li>
-            <li><a href="cart.html">Cart</a></li>
+            <li>
+            <li class="nav-cart">
+            <a href="cart.html" class="nav-cart-link">
+            Cart
+            <span id="cart-count" class="cart-badge"></span>
+            </a>
+            </li>
+
             <li><a href="login.html">Account</a></li>
         </ul>
     </nav>
 
     <main class="cart-page section">
         <h1>Shopping Cart</h1>
-        <p class="cart-subtitle">
-            Review your items below.
+        <p class="cart-subtitle">Review items</p>
+
+        <p id="cart-empty" class="cart-subtitle" style="display:none;">
+            Your cart is empty. <a href="products.html"></a>
         </p>
 
-        <div class="cart-layout">
+        <div class="cart-layout" id="cart-items"></div>
 
-            <!-- Cart Item -->
-            <article class="cart-item">
-                <img
-                    src="img/stockphoto.webp"
-                    alt="Cart item"
-                    class="cart-item-image"
-                />
-
-                <div class="cart-item-info">
-                    <h2 class="cart-item-title">Cart Item</h2>
-                    <p class="cart-item-meta">Example item description</p>
-
-                    <div class="cart-item-bottom-row">
-                        <div class="cart-qty">
-                            <label>Qty</label>
-                            <input type="number" min="1" value="1" />
-                        </div>
-
-                        <span class="cart-item-price">$0.00</span>
-
-                        <button class="cart-remove" type="button">
-                            Remove
-                        </button>
-                    </div>
-                </div>
-            </article>
-
+        <!-- Totals -->
+        <div class="cart-summary" style="margin-top: 1.5rem;">
+            <h2 style="margin:0;">
+                Total: <span id="cart-total">$0.00</span>
+            </h2>
         </div>
 
         <!-- Checkout button -->
         <div class="cart-checkout-container">
-            <button class="btn-primary cart-checkout-btn">
+            <button class="btn-primary cart-checkout-btn" id="checkout-btn" type="button">
                 Proceed to Checkout
             </button>
         </div>
 
     </main>
+
+    <script src="products.js"></script>
+    <script src="cart.js"></script>
+<!-- fake checkout -->
+    <script>
+      document.getElementById("checkout-btn").addEventListener("click", () => {
+        alert("Checkout is not implemented yet (demo cart is working though).");
+      });
+    </script>
 
 </body>
 </html>
