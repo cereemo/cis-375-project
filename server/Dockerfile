@@ -44,3 +44,14 @@ RUN git clone https://github.com/drogonframework/drogon.git \
     && cd ../.. && rm -rf drogon
 
 RUN gcc --version
+
+WORKDIR /app
+
+COPY . .
+
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build -j$(nproc)
+
+EXPOSE 8080
+
+CMD ["./build/ecommerce_server"]

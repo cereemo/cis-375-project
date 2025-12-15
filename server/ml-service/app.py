@@ -5,19 +5,26 @@ import os
 
 app = Flask(__name__)
 
-# ONLY CLIP model for everything
+# Multiple specialized models
 clip_model = SentenceTransformer("sentence-transformers/clip-ViT-B-32")
+text_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+ecommerce_model = SentenceTransformer("sentence-transformers/msmarco-distilbert-base-v4")
 
 UPLOAD_FOLDER = "/app/uploads"
 
 
-@app.route("/embed/text", methods=["POST"])
-def embed_text():
-    """Embed text using CLIP model - works for both indexing and searching"""
+# ==================== TEXT EMBEDDING ====================
+
+@app.route("/embed/text/clip", methods=["POST"])
+def embed_text_clip():
+    """CLIP text embedding - good for cross-modal (text-to-image) search"""
     data = request.json
     text = data.get("text", "")
+    add_prefix = data.get("add_prefix", False)  # For search queries
 
-    # CLIP text encoding (no prefix needed)
+    if add_prefix and len(text.split()) <= 3:
+        text = f"a photo of {text}"
+
     vector = clip_model.encode(
         text,
         convert_to_tensor=False,
@@ -26,14 +33,80 @@ def embed_text():
 
     return jsonify({
         "vector": vector,
-        "type": "clip",  # Single unified type
+        "model": "clip",
         "dimensions": len(vector)
     })
 
 
+@app.route("/embed/text/semantic", methods=["POST"])
+def embed_text_semantic():
+    """Semantic text embedding - best for text-to-text matching"""
+    data = request.json
+    text = data.get("text", "")
+
+    vector = text_model.encode(
+        text,
+        convert_to_tensor=False,
+        normalize_embeddings=True
+    ).tolist()
+
+    return jsonify({
+        "vector": vector,
+        "model": "semantic",
+        "dimensions": len(vector)
+    })
+
+
+@app.route("/embed/text/search", methods=["POST"])
+def embed_text_search():
+    """Search-optimized embedding - trained on query-document pairs"""
+    data = request.json
+    text = data.get("text", "")
+
+    vector = ecommerce_model.encode(
+        text,
+        convert_to_tensor=False,
+        normalize_embeddings=True
+    ).tolist()
+
+    return jsonify({
+        "vector": vector,
+        "model": "search",
+        "dimensions": len(vector)
+    })
+
+
+@app.route("/embed/text/all", methods=["POST"])
+def embed_text_all():
+    """Generate all text embeddings at once - for product indexing"""
+    data = request.json
+    text = data.get("text", "")
+
+    clip_vec = clip_model.encode(text, normalize_embeddings=True).tolist()
+    semantic_vec = text_model.encode(text, normalize_embeddings=True).tolist()
+    search_vec = ecommerce_model.encode(text, normalize_embeddings=True).tolist()
+
+    return jsonify({
+        "clip": {
+            "vector": clip_vec,
+            "dimensions": len(clip_vec)
+        },
+        "semantic": {
+            "vector": semantic_vec,
+            "dimensions": len(semantic_vec)
+        },
+        "search": {
+            "vector": search_vec,
+            "dimensions": len(search_vec)
+        }
+    })
+
+
+# ==================== IMAGE EMBEDDING ====================
+
 @app.route("/embed/image", methods=["POST"])
 def embed_image():
-    """Embed image using CLIP model"""
+    """CLIP image embedding"""
     data = request.json
     filename = data.get("filename", "")
     path = os.path.join(UPLOAD_FOLDER, filename)
@@ -41,7 +114,6 @@ def embed_image():
     try:
         img = Image.open(path).convert("RGB")
 
-        # CLIP image encoding
         vector = clip_model.encode(
             img,
             convert_to_tensor=False,
@@ -50,11 +122,16 @@ def embed_image():
 
         return jsonify({
             "vector": vector,
-            "type": "clip",  # Same type as text
+            "model": "clip",
             "dimensions": len(vector)
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "healthy", "models_loaded": 3})
 
 
 if __name__ == "__main__":

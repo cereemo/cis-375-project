@@ -14,7 +14,9 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::addProduct(drogon::Http
     }
 
     drogon::MultiPartParser fileParser;
-    if (fileParser.parse(req) != 0 || fileParser.getFiles().empty()) co_return createResponse({{"error", "No files uploaded"}, {"field", "client"}}, drogon::k400BadRequest);
+    if (fileParser.parse(req) != 0 || fileParser.getFiles().empty()) {
+        co_return createResponse({{"error", "No files uploaded"}}, drogon::k400BadRequest);
+    }
 
     auto params = fileParser.getParameters();
     std::string name = params["name"];
@@ -29,25 +31,28 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::addProduct(drogon::Http
         productId = result[0]["id"].as<int>();
     } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "Postgres Error: " << e.base().what();
-        co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
+        co_return createResponse({{"error", "Database error"}}, drogon::k500InternalServerError);
     }
 
     std::string productDir = "/app/uploads/" + std::to_string(productId) + "/";
     fs::create_directories(productDir);
 
-    Json::Value imageList(Json::arrayValue);
-    std::vector<QdrantService::VectorPoint> vectors;
+    std::string fullText = name + ". " + description;
+    auto textEmbeddings = co_await MlService::embedTextAll(fullText);
 
-    // Embed text description with CLIP
-    if (!description.empty()) {
-        // Combine name + description for better semantic understanding
-        std::string fullText = name + ". " + description;
-        if (auto textVec = co_await MlService::embedText(fullText)) {
-            vectors.push_back(*textVec);
-        }
+    if (!textEmbeddings) {
+        LOG_ERROR << "Failed to generate text embeddings for product " << productId;
+        co_return createResponse({{"error", "Embedding service error"}}, drogon::k500InternalServerError);
     }
 
-    // Embed all images with CLIP
+    QdrantService::ProductVectors textVectors;
+    textVectors.clip = textEmbeddings->clip.vector;
+    textVectors.semantic = textEmbeddings->semantic.vector;
+    textVectors.search = textEmbeddings->search.vector;
+
+    Json::Value imageList(Json::arrayValue);
+    std::vector<std::vector<float>> imageVectors;
+
     int count = 0;
     for (const auto& file : fileParser.getFiles()) {
         if (count >= 6) break;
@@ -57,11 +62,10 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::addProduct(drogon::Http
         (void) file.saveAs(productDir + filename);
 
         std::string relativePath = std::to_string(productId) + "/" + filename;
-
         imageList.append(relativePath);
 
-        if (auto imageVec = co_await MlService::embedImage(relativePath)) {
-            vectors.push_back(*imageVec);
+        if (auto imgEmbed = co_await MlService::embedImage(relativePath)) {
+            imageVectors.push_back(imgEmbed->vector);
         }
 
         count++;
@@ -74,13 +78,14 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::addProduct(drogon::Http
     try {
         co_await postgres->execSqlCoro("UPDATE products SET images=$1::jsonb WHERE id=$2", jsonStr, productId);
     } catch (...) {
-        co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
+        co_return createResponse({{"error", "Database error"}}, drogon::k500InternalServerError);
     }
 
-    // Upsert averaged CLIP vector
-    if (!vectors.empty()) co_await QdrantService::upsertProductPoints(productId, vectors);
+    bool success = co_await QdrantService::upsertProduct(productId, textVectors, imageVectors);
 
-    co_return createResponse({{"id", productId}, {"images", imageList}}, drogon::k201Created);
+    if (!success) LOG_WARN << "Failed to index product " << productId << " in Qdrant";
+
+    co_return createResponse({{"id", productId},{"images", imageList},{"vectors_indexed", success}}, drogon::k201Created);
 }
 
 
@@ -144,10 +149,27 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::searchProduct(drogon::H
     std::string query = req->getParameter("q");
     if (query.empty()) co_return createResponse({{"error", "Missing query"}, {"field", "client"}}, drogon::k400BadRequest);
 
-    auto queryVecOpt = co_await MlService::embedText(query);
-    if (!queryVecOpt) co_return createResponse({{"data", Json::Value(Json::arrayValue)}}, drogon::k200OK);
+    bool addPrefix = query.find(' ') == std::string::npos && query.length() < 15;
 
-    auto productIds = co_await QdrantService::search(queryVecOpt->vector, 20);
+    auto clipTask = MlService::embedTextClip(query, addPrefix);
+    auto semanticTask = MlService::embedTextSemantic(query);
+    auto searchTask = MlService::embedTextSearch(query);
+
+    auto clipEmbed = co_await clipTask;
+    auto semanticEmbed = co_await semanticTask;
+    auto searchEmbed = co_await searchTask;
+
+    if (!clipEmbed || !semanticEmbed || !searchEmbed) {
+        co_return createResponse({{"error", "Embedding service error"}}, drogon::k500InternalServerError);
+    }
+
+    QdrantService::ProductVectors queryVectors;
+    queryVectors.clip = clipEmbed->vector;
+    queryVectors.semantic = semanticEmbed->vector;
+    queryVectors.search = searchEmbed->vector;
+
+    // Hybrid search with RRF
+    auto productIds = co_await QdrantService::search(queryVectors, 20);
 
     if (productIds.empty()) co_return createResponse({{"data", Json::Value(Json::arrayValue)}}, drogon::k200OK);
 
@@ -163,7 +185,6 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::searchProduct(drogon::H
     auto postgres = drogon::app().getDbClient();
     auto rows = co_await postgres->execSqlCoro(sql);
 
-    // Create a map of id -> product data
     std::unordered_map<int, Json::Value> productMap;
 
     for (const auto& row : rows) {
@@ -185,10 +206,9 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::searchProduct(drogon::H
         productMap[row["id"].as<int>()] = p;
     }
 
-    // Build result list in Qdrant's order
     Json::Value list(Json::arrayValue);
     for (int id : productIds) {
-        if (productMap.find(id) != productMap.end()) {
+        if (productMap.contains(id)) {
             list.append(productMap[id]);
         }
     }

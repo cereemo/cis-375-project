@@ -1,13 +1,16 @@
 #pragma once
 
 #include <drogon/drogon.h>
-#include <cmath>
+#include <vector>
+#include <string>
+#include <unordered_set>
 
 class QdrantService {
 public:
-    struct VectorPoint {
-        std::vector<float> vector;
-        std::string type;
+    struct ProductVectors {
+        std::vector<float> clip;
+        std::vector<float> semantic;
+        std::vector<float> search;
     };
 
     static drogon::Task<bool> initCollection() {
@@ -18,6 +21,12 @@ public:
         payload["vectors"]["clip"]["size"] = 512;
         payload["vectors"]["clip"]["distance"] = "Cosine";
 
+        payload["vectors"]["semantic"]["size"] = 384;
+        payload["vectors"]["semantic"]["distance"] = "Cosine";
+
+        payload["vectors"]["search"]["size"] = 768;
+        payload["vectors"]["search"]["distance"] = "Cosine";
+
         auto request = drogon::HttpRequest::newHttpJsonRequest(payload);
         request->setMethod(drogon::Put);
         request->setPath("/collections/products");
@@ -25,7 +34,7 @@ public:
         auto response = co_await client->sendRequestCoro(request);
 
         if (response->getStatusCode() == 200 || response->getStatusCode() == 409) {
-            LOG_INFO << "Qdrant collection 'products' is ready (CLIP unified). Body " << response->body();
+            LOG_INFO << "Qdrant collection 'products' ready with multi-vector support";
             co_return true;
         }
 
@@ -33,41 +42,58 @@ public:
         co_return false;
     }
 
-
-    static drogon::Task<bool> upsertProductPoints(int productId, const std::vector<VectorPoint>& points) {
-        if (points.empty()) co_return false;
-
+    static drogon::Task<bool> upsertProduct(int productId, const ProductVectors& textVectors, const std::vector<std::vector<float>>& imageVectors) {
         auto client = drogon::HttpClient::newHttpClient("http://host.docker.internal:6333");
 
         Json::Value pointsArray(Json::arrayValue);
 
-        // Create separate point for each vector (text + each image)
-        int vectorId = 0;
-        for (const auto& p : points) {
-            if (p.vector.size() != 512) continue;
+        Json::Value textPoint;
+        textPoint["id"] = productId * 1000;
 
-            Json::Value vecArr(Json::arrayValue);
-            for (float f : p.vector) vecArr.append(f);
+        Json::Value textVectorObj;
 
-            Json::Value vectors(Json::objectValue);
-            vectors["clip"] = vecArr;
+        Json::Value clipArr(Json::arrayValue);
+        for (float f : textVectors.clip) clipArr.append(f);
+        textVectorObj["clip"] = clipArr;
 
-            Json::Value point(Json::objectValue);
-            // Unique ID: productId * 100 + vectorId (e.g., product 5 → IDs 500, 501, 502...)
-            point["id"] = productId * 100 + vectorId;
-            point["vector"] = vectors;
+        Json::Value semArr(Json::arrayValue);
+        for (float f : textVectors.semantic) semArr.append(f);
+        textVectorObj["semantic"] = semArr;
 
-            Json::Value payload(Json::objectValue);
-            payload["product_id"] = productId;  // Store original product ID
-            payload["vector_type"] = p.type;     // "text" or "image"
-            payload["vector_index"] = vectorId;  // Which image/text this is
-            point["payload"] = payload;
+        Json::Value searchArr(Json::arrayValue);
+        for (float f : textVectors.search) searchArr.append(f);
+        textVectorObj["search"] = searchArr;
 
-            pointsArray.append(point);
-            vectorId++;
+        textPoint["vector"] = textVectorObj;
+
+        Json::Value textPayload;
+        textPayload["product_id"] = productId;
+        textPayload["vector_type"] = "text";
+        textPoint["payload"] = textPayload;
+
+        pointsArray.append(textPoint);
+
+        for (size_t i = 0; i < imageVectors.size(); i++) {
+            Json::Value imgPoint;
+            imgPoint["id"] = productId * 1000 + static_cast<int>(i) + 1;
+
+            Json::Value imgVectorObj;
+            Json::Value imgClipArr(Json::arrayValue);
+            for (float f : imageVectors[i]) imgClipArr.append(f);
+            imgVectorObj["clip"] = imgClipArr;
+
+            imgPoint["vector"] = imgVectorObj;
+
+            Json::Value imgPayload;
+            imgPayload["product_id"] = productId;
+            imgPayload["vector_type"] = "image";
+            imgPayload["image_index"] = static_cast<int>(i);
+            imgPoint["payload"] = imgPayload;
+
+            pointsArray.append(imgPoint);
         }
 
-        Json::Value body(Json::objectValue);
+        Json::Value body;
         body["points"] = pointsArray;
 
         auto request = drogon::HttpRequest::newHttpJsonRequest(body);
@@ -76,10 +102,82 @@ public:
 
         auto response = co_await client->sendRequestCoro(request);
 
-        LOG_INFO << "Upserted product " << productId << " with " << points.size()
-                 << " separate CLIP vectors";
+        LOG_INFO << "Upserted product " << productId << " (1 text + " << imageVectors.size() << " images)";
 
         co_return response->getStatusCode() == 200;
+    }
+
+    static drogon::Task<std::vector<int>> search(const ProductVectors& queryVectors, int limit = 20) {
+        auto client = drogon::HttpClient::newHttpClient("http://host.docker.internal:6333");
+
+        Json::Value prefetchArray(Json::arrayValue);
+
+        if (!queryVectors.clip.empty()) {
+            Json::Value clipQuery;
+            Json::Value clipVec(Json::arrayValue);
+            for (float f : queryVectors.clip) clipVec.append(f);
+            clipQuery["using"] = "clip";
+            clipQuery["query"] = clipVec;
+            clipQuery["limit"] = limit * 3;
+            prefetchArray.append(clipQuery);
+        }
+
+        if (!queryVectors.semantic.empty()) {
+            Json::Value semQuery;
+            Json::Value semVec(Json::arrayValue);
+            for (float f : queryVectors.semantic) semVec.append(f);
+            semQuery["using"] = "semantic";
+            semQuery["query"] = semVec;
+            semQuery["limit"] = limit * 3;
+            prefetchArray.append(semQuery);
+        }
+
+        if (!queryVectors.search.empty()) {
+            Json::Value searchQuery;
+            Json::Value searchVec(Json::arrayValue);
+            for (float f : queryVectors.search) searchVec.append(f);
+            searchQuery["using"] = "search";
+            searchQuery["query"] = searchVec;
+            searchQuery["limit"] = limit * 3;
+            prefetchArray.append(searchQuery);
+        }
+
+        Json::Value body;
+        body["prefetch"] = prefetchArray;
+        body["query"]["fusion"] = "rrf";
+        body["limit"] = limit;
+        body["with_payload"] = true;
+
+        auto request = drogon::HttpRequest::newHttpJsonRequest(body);
+        request->setMethod(drogon::Post);
+        request->setPath("/collections/products/points/query");
+
+        auto response = co_await client->sendRequestCoro(request);
+
+        std::vector<int> productIds;
+
+        if (response->getStatusCode() == 200) {
+            auto json = response->getJsonObject();
+            if (json && json->isMember("result") && (*json)["result"].isObject() && (*json)["result"].isMember("points") && (*json)["result"]["points"].isArray()) {
+                std::unordered_set<int> seen;
+
+                for (const auto& hit : (*json)["result"]["points"]) {
+                    if (hit.isMember("payload") &&
+                        hit["payload"].isMember("product_id"))
+                    {
+                        int prodId = hit["payload"]["product_id"].asInt();
+                        if (!seen.contains(prodId)) {
+                            productIds.push_back(prodId);
+                            seen.insert(prodId);
+                        }
+                    }
+                }
+            }
+        } else {
+            LOG_ERROR << "Search failed: " << response->getBody();
+        }
+
+        co_return productIds;
     }
 
     static drogon::Task<int> countPoints() {
@@ -133,62 +231,5 @@ public:
 
         auto response = co_await client->sendRequestCoro(request);
         co_return response->getStatusCode() == 200;
-    }
-
-    static drogon::Task<std::vector<int>> search(const std::vector<float>& queryVector, int limit = 20) {
-        auto client = drogon::HttpClient::newHttpClient("http://host.docker.internal:6333");
-
-        // Verify vector size
-        if (queryVector.size() != 512) {
-            LOG_ERROR << "Invalid query vector size: " << queryVector.size() << " (expected 512)";
-            co_return std::vector<int>{};
-        }
-
-        LOG_INFO << "CLIP query vector size: " << queryVector.size();
-
-        // Build query vector
-        Json::Value vecArr(Json::arrayValue);
-        for (float f : queryVector) vecArr.append(f);
-
-        // Simple query body - no fusion needed
-        Json::Value body(Json::objectValue);
-        body["vector"] = Json::Value(Json::objectValue);
-        body["vector"]["name"] = "clip";
-        body["vector"]["vector"] = vecArr;
-        body["limit"] = limit;
-        body["with_payload"] = true;
-
-        auto request = drogon::HttpRequest::newHttpJsonRequest(body);
-        request->setMethod(drogon::Post);
-        request->setPath("/collections/products/points/search");
-        request->addHeader("Content-Type", "application/json");
-
-        auto response = co_await client->sendRequestCoro(request);
-
-        std::vector<int> productIds;
-
-        if (response->getStatusCode() == 200) {
-            auto json = response->getJsonObject();
-            if (json && json->isMember("result")) {
-                if (const auto& result = (*json)["result"]; result.isArray()) {
-                    std::unordered_set<int> seenProducts;
-                    for (const auto& hit : result) {
-                        if (hit.isMember("payload") && hit["payload"].isMember("product_id")) {
-                            int prodId = hit["payload"]["product_id"].asInt();
-
-                            // Only add each product once (first/best match)
-                            if (!seenProducts.contains(prodId)) {
-                                productIds.push_back(prodId);
-                                seenProducts.insert(prodId);
-
-                                if (productIds.size() >= static_cast<size_t>(limit)) break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        co_return productIds;
     }
 };
