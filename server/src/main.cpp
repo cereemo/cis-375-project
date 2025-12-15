@@ -4,6 +4,7 @@
 #include "services/QdrantService.h"
 #include "services/VaultService.h"
 #include "filters/JwtFilter.h"
+#include <filesystem>
 
 [[noreturn]] void vaultBackgroundWorker() {
     LOG_INFO << "Vault background worker started.";

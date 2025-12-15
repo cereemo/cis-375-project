@@ -17,4 +17,7 @@ server/infra/qdrant/storage/*
 server/infra/vault/data/*
 !server/infra/vault/data/.gitkeep
 
+server/infra/uploads/*
+!server/infra/uploads/.gitkeep
+
 server/infra/vault/data/keys.json

@@ -31,7 +31,7 @@ services:
       - ./infra/redis/data:/data
     command: redis-server --appendonly yes
   qdrant:
-    image: qdrant/qdrant:v1.9.2
+    image: qdrant/qdrant:v1.16.0
     container_name: qdrant
     restart: always
     ports:

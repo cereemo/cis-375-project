@@ -7,7 +7,11 @@
 namespace fs = std::filesystem;
 
 drogon::Task<drogon::HttpResponsePtr> ProductController::addProduct(drogon::HttpRequestPtr req) {
-    if (auto userJson = req->attributes()->get<Json::Value>("user"); !userJson.isMember("role") || userJson["role"].asString() != "admin") co_return createResponse({{"error", "Admins Only"}, {"field", "client"}}, drogon::k403Forbidden);
+    if (auto userJson = req->attributes()->get<Json::Value>("user");
+        !userJson.isMember("role") ||
+        userJson["role"].asString() != "admin") {
+        co_return createResponse({{"error", "Admins Only"}, {"field", "client"}}, drogon::k403Forbidden);
+    }
 
     drogon::MultiPartParser fileParser;
     if (fileParser.parse(req) != 0 || fileParser.getFiles().empty()) co_return createResponse({{"error", "No files uploaded"}, {"field", "client"}}, drogon::k400BadRequest);
@@ -23,39 +27,42 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::addProduct(drogon::Http
     try {
         auto result = co_await postgres->execSqlCoro("INSERT INTO products (name, description, price) VALUES ($1, $2, $3) RETURNING id", name, description, price);
         productId = result[0]["id"].as<int>();
-    } catch (drogon::orm::DrogonDbException& e) {
+    } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "Postgres Error: " << e.base().what();
         co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
     }
 
-    std::string uploadBase = "/app/uploads/";
-    std::string productDir = uploadBase + std::to_string(productId) + "/";
-
-    if (!fs::exists(productDir)) fs::create_directories(productDir);
+    std::string productDir = "/app/uploads/" + std::to_string(productId) + "/";
+    fs::create_directories(productDir);
 
     Json::Value imageList(Json::arrayValue);
-    std::vector<QdrantService::VectorPoint> pointsToUpsert;
+    std::vector<QdrantService::VectorPoint> vectors;
 
-    auto descriptionVector = co_await MlService::embedText(description);
-    if (!description.empty()) pointsToUpsert.push_back({descriptionVector, "description"});
+    // Embed text description with CLIP
+    if (!description.empty()) {
+        // Combine name + description for better semantic understanding
+        std::string fullText = name + ". " + description;
+        if (auto textVec = co_await MlService::embedText(fullText)) {
+            vectors.push_back(*textVec);
+        }
+    }
 
-    auto files = fileParser.getFiles();
+    // Embed all images with CLIP
     int count = 0;
-
-    for (const auto& file : files) {
+    for (const auto& file : fileParser.getFiles()) {
         if (count >= 6) break;
 
         std::string ext = std::string(file.getFileExtension());
-        std::string safeName = std::to_string(count) + "." + ext;
+        std::string filename = std::to_string(count) + "." + ext;
+        (void) file.saveAs(productDir + filename);
 
-        (void) file.saveAs(productDir + safeName);
-
-        std::string relativePath = std::to_string(productId) + "/" + safeName;
+        std::string relativePath = std::to_string(productId) + "/" + filename;
 
         imageList.append(relativePath);
 
-        auto imageVec = co_await MlService::embedImage(relativePath);
-        if (!imageVec.empty()) pointsToUpsert.push_back({imageVec, "image"});
+        if (auto imageVec = co_await MlService::embedImage(relativePath)) {
+            vectors.push_back(*imageVec);
+        }
 
         count++;
     }
@@ -66,15 +73,16 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::addProduct(drogon::Http
 
     try {
         co_await postgres->execSqlCoro("UPDATE products SET images=$1::jsonb WHERE id=$2", jsonStr, productId);
-    } catch (drogon::orm::DrogonDbException& e) {
-        LOG_ERROR << "Postgres Error: " << e.base().what();
+    } catch (...) {
         co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
     }
 
-    co_await QdrantService::upsertProductPoints(productId, pointsToUpsert);
+    // Upsert averaged CLIP vector
+    if (!vectors.empty()) co_await QdrantService::upsertProductPoints(productId, vectors);
 
     co_return createResponse({{"id", productId}, {"images", imageList}}, drogon::k201Created);
 }
+
 
 drogon::Task<drogon::HttpResponsePtr> ProductController::deleteProduct(drogon::HttpRequestPtr req, int productId) {
     if (auto userJson = req->attributes()->get<Json::Value>("user"); !userJson.isMember("role") || userJson["role"].asString() != "admin") co_return createResponse({{"error", "Admins Only"}, {"field", "client"}}, drogon::k403Forbidden);
@@ -136,58 +144,53 @@ drogon::Task<drogon::HttpResponsePtr> ProductController::searchProduct(drogon::H
     std::string query = req->getParameter("q");
     if (query.empty()) co_return createResponse({{"error", "Missing query"}, {"field", "client"}}, drogon::k400BadRequest);
 
-    auto queryVector = co_await MlService::embedText(query);
-    auto rawIds = co_await QdrantService::search(queryVector, 20);
+    auto queryVecOpt = co_await MlService::embedText(query);
+    if (!queryVecOpt) co_return createResponse({{"data", Json::Value(Json::arrayValue)}}, drogon::k200OK);
 
-    std::vector<int> uniqueIds;
-    std::set<int> seen;
-    for (int id : rawIds) {
-        if (!seen.contains(id)) {
-            uniqueIds.push_back(id);
-            seen.insert(id);
-        }
-    }
+    auto productIds = co_await QdrantService::search(queryVecOpt->vector, 20);
 
-    if (uniqueIds.empty()) co_return createResponse({{"data", Json::Value(Json::arrayValue)}}, drogon::k200OK);
+    if (productIds.empty()) co_return createResponse({{"data", Json::Value(Json::arrayValue)}}, drogon::k200OK);
 
-    std::string sql = "SELECT id, name, price, description, images FROM products WHERE id in (";
-    for (size_t i = 0; i < uniqueIds.size(); i++) {
-        sql += std::to_string(uniqueIds[i]);
-        if (i < uniqueIds.size() - 1) sql += ",";
+    // Build ID list for SQL
+    std::string sql = "SELECT id, name, price, description, images FROM products WHERE id IN (";
+
+    for (size_t i = 0; i < productIds.size(); ++i) {
+        sql += std::to_string(productIds[i]);
+        if (i + 1 < productIds.size()) sql += ",";
     }
     sql += ")";
 
     auto postgres = drogon::app().getDbClient();
+    auto rows = co_await postgres->execSqlCoro(sql);
+
+    // Create a map of id -> product data
+    std::unordered_map<int, Json::Value> productMap;
+
+    for (const auto& row : rows) {
+        Json::Value p;
+        p["id"] = row["id"].as<int>();
+        p["name"] = row["name"].as<std::string>();
+        p["price"] = row["price"].as<double>();
+
+        Json::Value images;
+        Json::Reader reader;
+        reader.parse(row["images"].as<std::string>(), images);
+
+        p["images"] = images;
+        if (!images.empty()) p["thumbnail"] = images[0];
+
+        std::string desc = row["description"].as<std::string>();
+        p["snippet"] = desc.length() > 60 ? desc.substr(0, 60) + "..." : desc;
+
+        productMap[row["id"].as<int>()] = p;
+    }
+
+    // Build result list in Qdrant's order
     Json::Value list(Json::arrayValue);
-
-    try {
-        auto rows = co_await postgres->execSqlCoro(sql);
-
-        for (const auto& row : rows) {
-            Json::Value p;
-            p["id"] = row["id"].as<int>();
-            p["name"] = row["name"].as<std::string>();
-            p["price"] = row["price"].as<double>();
-
-            auto imgStr = row["images"].as<std::string>();
-            Json::Reader reader;
-            Json::Value imagesJson;
-            reader.parse(imgStr, imagesJson);
-            p["images"] = imagesJson;
-            if (!imagesJson.empty()) p["thumbnail"] = imagesJson[0];
-
-            std::string description = row["description"].as<std::string>();
-            if (description.length() > 15) {
-                p["snippet"] = description.substr(0, 15) + "...";
-            } else {
-                p["snippet"] = description;
-            }
-
-            list.append(p);
+    for (int id : productIds) {
+        if (productMap.find(id) != productMap.end()) {
+            list.append(productMap[id]);
         }
-    } catch (drogon::orm::DrogonDbException& e) {
-        LOG_ERROR << "Postgres Error: " << e.base().what();
-        co_return createResponse({{"error", "Internal server error"}, {"field", "server"}}, drogon::k500InternalServerError);
     }
 
     co_return createResponse({{"data", list}}, drogon::k200OK);

@@ -42,7 +42,6 @@
     "log_level": "DEBUG",
     "number_of_threads": 4,
     "document_root": "/app/uploads",
-    "static_files_paths": [],
     "enable_gzip": false
   }
 }
