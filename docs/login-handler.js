@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-message';
             errorDiv.style.cssText = 'color: var(--color-accent); margin: 1rem 0; padding: 0.75rem; background: rgba(184,59,94,0.1); border-radius: 0.5rem; font-size: 0.9rem;';
-            errorDiv.textContent = error.message || 'Login failed. Please check your credentials.';
+            errorDiv.textContent = error.message || 'Login failed. Please check your email/password combo.';
             
             form.insertBefore(errorDiv, submitButton);
             
