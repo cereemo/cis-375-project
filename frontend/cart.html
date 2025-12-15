@@ -6,7 +6,8 @@
     <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<!-- Navbar -->
+
+    <!-- Navbar -->
     <nav>
         <a href="index.html" class="logo">BuyThings</a> 
         <ul>
@@ -16,13 +17,42 @@
             <li><a href="login.html">Account</a></li>
         </ul>
     </nav>
+
     <main class="cart-page section">
         <h1>Shopping Cart</h1>
         <p class="cart-subtitle">
             Review your items below.
         </p>
-        
+
         <div class="cart-layout">
+
+            <!-- Cart Item -->
+            <article class="cart-item">
+                <img
+                    src="img/stockphoto.webp"
+                    alt="Cart item"
+                    class="cart-item-image"
+                />
+
+                <div class="cart-item-info">
+                    <h2 class="cart-item-title">Cart Item</h2>
+                    <p class="cart-item-meta">Example item description</p>
+
+                    <div class="cart-item-bottom-row">
+                        <div class="cart-qty">
+                            <label>Qty</label>
+                            <input type="number" min="1" value="1" />
+                        </div>
+
+                        <span class="cart-item-price">$0.00</span>
+
+                        <button class="cart-remove" type="button">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            </article>
+
         </div>
 
         <!-- Checkout button -->
@@ -31,9 +61,8 @@
                 Proceed to Checkout
             </button>
         </div>
+
     </main>
-    
-<script src="js/auth.js"></script>
-<script src="js/cart-handler.js"></script>
+
 </body>
 </html>
