@@ -43,5 +43,12 @@
     "number_of_threads": 4,
     "document_root": "/app/uploads",
     "enable_gzip": false
-  }
+  },
+  "static_file_handlers": [
+    {
+      "uri_prefix": "/",
+      "default_content_type": "image/webp",
+      "locations": ["/app/uploads"]
+    }
+  ]
 }
